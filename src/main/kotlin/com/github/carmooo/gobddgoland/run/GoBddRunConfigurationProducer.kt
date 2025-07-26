@@ -49,14 +49,20 @@ class GoBddRunConfigurationProducer protected constructor() :
             }
 
             if (scenario != null) {
-                pattern = pattern + "/^\\Q" + scenario.scenarioName + "\\E$"
+                val scenarioPattern = scenario.scenarioName.replace("/", "\\E/\\Q")
+                pattern = pattern + "/^\\Q" + scenarioPattern + "\\E$"
             } else if (scenarioOutline != null) {
-                pattern = pattern + "/^\\Q" + scenarioOutline.scenarioName + "\\E(#\\d+)?$"
+                val scenarioPattern = scenarioOutline.scenarioName.replace("/", "\\E/\\Q")
+                pattern = pattern + "/^\\Q" + scenarioPattern + "\\E(#\\d+)?$"
             } else if (feature != null) {
                 val allScenarioNames = getAllScenarioNamesFromFeature(feature)
                 if (allScenarioNames.isNotEmpty()) {
-                    val scenarioPattern = allScenarioNames.joinToString("|") { "\\Q$it\\E" }
-                    pattern = "$pattern/^($scenarioPattern)$"
+                    // Create complete test hierarchy patterns for each scenario
+                    val scenarioPatterns = allScenarioNames.map { scenarioName ->
+                        val escaped = scenarioName.replace("/", "\\E/\\Q")
+                        "$pattern/^\\Q${escaped}\\E$"
+                    }
+                    pattern = scenarioPatterns.joinToString("|")
                 } else {
                     // Fallback to wildcard if no scenarios found
                     pattern = pattern + "/.*"
@@ -136,15 +142,19 @@ private fun getAllScenarioNamesFromFeature(feature: GherkinFeature): List<String
 
     val scenarios = PsiTreeUtil.findChildrenOfType(feature, GherkinScenario::class.java)
     scenarios.forEach { scenario ->
-        scenario.scenarioName.let { name ->
-            scenarioNames.add(name)
+        scenario.scenarioName?.let { name ->
+            if (name.isNotBlank()) {
+                scenarioNames.add(name)
+            }
         }
     }
 
     val scenarioOutlines = PsiTreeUtil.findChildrenOfType(feature, GherkinScenarioOutline::class.java)
     scenarioOutlines.forEach { outline ->
-        outline.scenarioName.let { name ->
-            scenarioNames.add(name)
+        outline.scenarioName?.let { name ->
+            if (name.isNotBlank()) {
+                scenarioNames.add(name)
+            }
         }
     }
 
