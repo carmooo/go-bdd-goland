@@ -23,7 +23,10 @@ dependencies {
         create("GO", "2024.3")
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
 
-        plugin("gherkin", "243.21565.122")
+        val platformPlugins = providers.gradleProperty("platformPlugins").orNull
+        platformPlugins?.split(',')?.map(String::trim)?.filter(String::isNotEmpty)?.forEach { pluginId ->
+            plugin(pluginId)
+        }
 
         pluginVerifier()
         zipSigner()
