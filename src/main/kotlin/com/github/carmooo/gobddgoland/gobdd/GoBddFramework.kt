@@ -14,12 +14,7 @@ import com.intellij.openapi.module.Module
 import com.intellij.psi.PsiFile
 import kotlin.arrayOf
 
-val PACKAGES = arrayOf(
-    "github.com/PaddleHQ/go-bdd/v1",
-    "github.com/PaddleHQ/go-bdd/v2",
-    "github.com/PaddleHQ/go-bdd/v3",
-    "github.com/PaddleHQ/go-bdd/v4",
-)
+val GO_BDD_PATTERN = Regex("github\\.com/PaddleHQ/go-bdd/v\\d+")
 
 class GoBddFramework : GoTestFramework() {
     override fun getName(): String {
@@ -47,7 +42,7 @@ class GoBddFramework : GoTestFramework() {
         }
         
         // Check if bdd_test.go has go-bdd imports
-        return bddTestPsi.imports.any { it.path in PACKAGES }
+        return bddTestPsi.imports.any { it.path?.let { path -> GO_BDD_PATTERN.matches(path) } == true }
     }
 
     override fun isAvailableOnFunction(goFunctionOrMethodDeclaration: GoFunctionOrMethodDeclaration?): Boolean {
