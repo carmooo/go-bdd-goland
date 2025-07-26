@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.github.carmooo"
-version = "v0.0.1"
+version = "v0.0.2"
 
 repositories {
     mavenCentral()

@@ -32,20 +32,20 @@ class GoBddRunConfigurationProducer protected constructor() :
             val scenarioOutline = PsiTreeUtil.getParentOfType(element, GherkinScenarioOutline::class.java)
             val feature = PsiTreeUtil.getParentOfType(element, GherkinFeature::class.java)
 
-            val selectedTag = findEarliestTag(scenario, scenarioOutline, feature, "HTTP", "gRPC")
+            val availableTags = getAvailableTestTags(element.project)
+            val selectedTag = findEarliestTag(scenario, scenarioOutline, feature, *availableTags.toTypedArray())
 
-            var pattern = when (selectedTag) {
-                "HTTP" -> {
-                    "^\\QTestHTTPFeatures\\E$"
+            var pattern = if (selectedTag != null) {
+                val testFunctionName = getTestFunctionNameFromTag(selectedTag)
+                "^\\Q${testFunctionName}\\E$"
+            } else {
+                // If multiple test functions exist but no tags match, don't provide a configuration
+                if (availableTags.size > 1) {
+                    return false
                 }
-
-                "gRPC" -> {
-                    "^\\QTestGRPCFeatures\\E$"
-                }
-
-                else -> {
-                    "^\\QTestFeatures\\E$"
-                }
+                // Single test function or default fallback
+                val defaultTestFunction = getDefaultTestFunctionName(availableTags)
+                "^\\Q${defaultTestFunction}\\E$"
             }
 
             if (scenario != null) {
@@ -57,7 +57,6 @@ class GoBddRunConfigurationProducer protected constructor() :
             } else if (feature != null) {
                 val allScenarioNames = getAllScenarioNamesFromFeature(feature)
                 if (allScenarioNames.isNotEmpty()) {
-                    // Create complete test hierarchy patterns for each scenario
                     val scenarioPatterns = allScenarioNames.map { scenarioName ->
                         val escaped = scenarioName.replace("/", "\\E/\\Q")
                         "$pattern/^\\Q${escaped}\\E$"
@@ -125,10 +124,10 @@ private fun findFirstTag(element: PsiElement, vararg tagNames: String): String? 
         else -> emptyList()
     }
 
-    // Find the first tag that matches any of our target tags
+    // Find the first tag that matches any of our target tags (case-insensitive)
     for (tagText in tagTexts) {
         for (tagName in tagNames) {
-            if (tagText == "@$tagName") {
+            if (tagText.equals("@$tagName", ignoreCase = true)) {
                 return tagName
             }
         }
@@ -159,4 +158,39 @@ private fun getAllScenarioNamesFromFeature(feature: GherkinFeature): List<String
     }
 
     return scenarioNames
+}
+
+// Get available test tags by discovering test functions from bdd_test.go
+private fun getAvailableTestTags(project: com.intellij.openapi.project.Project): List<String> {
+    val baseDir = project.baseDir ?: return emptyList()
+    val bddTestFile = baseDir.findChild("bdd_test.go") ?: return emptyList()
+
+    val bddTestPsi = com.intellij.psi.PsiManager.getInstance(project).findFile(bddTestFile) as? com.goide.psi.GoFile
+        ?: return emptyList()
+
+    val testFunctionPattern = Regex("Test(\\w+)Features")
+    val tags = mutableListOf<String>()
+
+    bddTestPsi.functions.forEach { function ->
+        val functionName = function.name ?: return@forEach
+        val matchResult = testFunctionPattern.find(functionName)
+        if (matchResult != null) {
+            val tag = matchResult.groupValues[1]
+            tags.add(tag)
+        }
+    }
+
+    return tags
+}
+
+private fun getTestFunctionNameFromTag(tag: String): String {
+    return "Test${tag}Features"
+}
+
+private fun getDefaultTestFunctionName(availableTags: List<String>): String {
+    return if (availableTags.size == 1) {
+        getTestFunctionNameFromTag(availableTags.first())
+    } else {
+        "TestFeatures"
+    }
 }
