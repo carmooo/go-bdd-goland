@@ -62,6 +62,9 @@ class GoBddRunConfigurationProducer protected constructor() :
                     pattern = pattern + "/.*"
                 }
             }
+
+            pattern = pattern.replace(" ", "_")
+
             configuration.pattern = pattern
 
             configuration.setGeneratedName()
