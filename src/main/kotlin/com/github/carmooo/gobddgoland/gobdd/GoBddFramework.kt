@@ -26,23 +26,16 @@ class GoBddFramework : GoTestFramework() {
     }
 
     override fun isAvailableOnFile(psiFile: PsiFile?): Boolean {
-        if (psiFile == null || psiFile.fileType !== GoFileType.INSTANCE) {
+        if (psiFile == null || psiFile !is GoFile) {
             return false
         }
         
-        // Look for bdd_test.go in the project root
-        val project = psiFile.project
-        val baseDir = project.baseDir ?: return false
-        val bddTestFile = baseDir.findChild("bdd_test.go") ?: return false
-        
-        // Get the PSI file for bdd_test.go
-        val bddTestPsi = com.intellij.psi.PsiManager.getInstance(project).findFile(bddTestFile)
-        if (bddTestPsi !is GoFile) {
+        val fileName = psiFile.name
+        if (fileName != "bdd_test.go") {
             return false
         }
         
-        // Check if bdd_test.go has go-bdd imports
-        return bddTestPsi.imports.any { it.path?.let { path -> GO_BDD_PATTERN.matches(path) } == true }
+        return psiFile.imports.any { it.path?.let { path -> GO_BDD_PATTERN.matches(path) } == true }
     }
 
     override fun isAvailableOnFunction(goFunctionOrMethodDeclaration: GoFunctionOrMethodDeclaration?): Boolean {
